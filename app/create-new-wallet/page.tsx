@@ -4,25 +4,34 @@ import { generateMnemonic, mnemonicToSeedSync } from "bip39";
 import { derivePath } from "ed25519-hd-key";
 import { Keypair } from "@solana/web3.js";
 import nacl from "tweetnacl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import bs58 from "bs58";
 import { useRouter } from "next/navigation";
-import { AppDispatch } from "../../lib/store";
-import {
-  setPrivateKey,
-  setPublicKey,
-} from "../../lib/features/wallets/addressSlice";
-import { useDispatch } from "react-redux";
+import { validateUser } from "../actions/user";
+import { createWallet } from "../actions/wallet";
 
 const mnemonic = generateMnemonic();
 console.log("The mnemonic is: ", mnemonic);
 
 export default function CreateNewWallet() {
   const router = useRouter();
-  const dispatch: AppDispatch = useDispatch();
 
   const [isCopiedCheck, setIsCopiedChecked] = useState(false);
   const [copiedCheckedErr, setCopiedCheckedErr] = useState("");
+
+  const validate = async() => {
+    const result = await validateUser();
+
+    console.log("validation result: ", result);
+
+    const resultObj = JSON.parse(result);
+
+    if(resultObj.success){
+        console.log(resultObj.message);
+    }else{
+        router.push('/signup');
+    }
+  }
 
   const copyToClipBoard = async () => {
     try {
@@ -32,7 +41,7 @@ export default function CreateNewWallet() {
     }
   };
 
-  const createNewWallet = () => {
+  const createNewWallet = async() => {
     try {
       if (!isCopiedCheck) {
         setCopiedCheckedErr("click on the checkbox to continue");
@@ -47,14 +56,21 @@ export default function CreateNewWallet() {
       console.log("private key: ", bs58.encode(privateKey));
       console.log("public key: ", publicKey);
 
-      dispatch(setPrivateKey(privateKey));
-      dispatch(setPublicKey(publicKey));
+      const result = await createWallet(bs58.encode(privateKey), publicKey);
+      const resultObj = JSON.parse(result);
 
-      router.push("/wallets");
+      if(resultObj.success){
+        console.log(resultObj.message);
+        router.push("/wallets"); 
+      }
     } catch (err) {
       console.error("Failed to create new wallet: ", err);
     }
   };
+
+  useEffect(()=>{
+    validate();
+  }, []);
 
   return (
     <>
